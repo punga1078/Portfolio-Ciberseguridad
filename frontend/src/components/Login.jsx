@@ -3,10 +3,34 @@ import { useState } from 'react';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMensaje, setErrorMensaje] = useState(''); // Estado para errores
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Intentando login con:", email);
+    setErrorMensaje(''); // Limpiar errores previos
+
+    try {
+      const response = await fetch('http://localhost:8000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Error en la conexión');
+      }
+
+      // Si llegamos aquí, el login fue exitoso
+      alert("¡Login Exitoso! Token recibido: " + data.token);
+      console.log(data);
+
+    } catch (error) {
+      setErrorMensaje(error.message);
+    }
   };
 
   return (
@@ -16,6 +40,13 @@ export default function Login() {
           <h2 className="text-3xl font-bold text-white">Security Portal</h2>
           <p className="text-gray-400 mt-2">Acceso Restringido</p>
         </div>
+
+        {/* 🛡️ Alerta de error condicional */}
+        {errorMensaje && (
+          <div className="mb-4 bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded-md text-sm text-center">
+            {errorMensaje}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
