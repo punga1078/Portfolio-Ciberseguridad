@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from jose import JWTError, jwt
 
 # Importamos nuestros módulos locales
 from . import models, security
@@ -28,6 +30,33 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# 🛡️ Le decimos a FastAPI dónde se consiguen los tokens
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+# 👮‍♂️ El Guardia de Seguridad: Verifica el JWT en cada petición protegida
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    excepcion_credenciales = HTTPException(
+        status_code=401,
+        detail="No se pudieron validar las credenciales o el token expiró",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        # Intentamos decodificar el token con nuestra llave maestra
+        payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise excepcion_credenciales
+    except JWTError:
+        # Si el token es falso, modificado o caducado, cae aquí
+        raise excepcion_credenciales
+    
+    # Si el token es válido, buscamos al usuario en la base de datos
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user is None:
+        raise excepcion_credenciales
+    
+    return user
 
 # 🛡️ Esquemas de validación (Pydantic)
 class UserCreate(BaseModel):
@@ -72,4 +101,14 @@ def login(credenciales: LoginRequest, db: Session = Depends(get_db)):
         "mensaje": "Autenticación exitosa", 
         "token": token,
         "token_type": "bearer"
+    }
+
+# 🔒 NUEVO: Ruta Protegida (El Dashboard del Portfolio)
+@app.get("/api/dashboard")
+def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)):
+    # Si el código llega hasta aquí, significa que el guardia (get_current_user) aprobó el token
+    return {
+        "mensaje": f"¡Bienvenido a la bóveda, {current_user.email}!",
+        "datos_secretos": "Aquí irán los proyectos privados de tu Portfolio",
+        "rol": "Administrador"
     }

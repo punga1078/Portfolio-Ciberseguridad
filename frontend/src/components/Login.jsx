@@ -35,6 +35,44 @@ export default function Login() {
     }
   };
 
+  // 🚀 Función para probar la Bóveda Secreta
+  const accederAlDashboard = async () => {
+    // 1. Buscamos la llave en la mochila (localStorage)
+    const token = localStorage.getItem('portfolio_token');
+    
+    if (!token) {
+      alert("Acceso Denegado: No tienes un token. Inicia sesión primero.");
+      return;
+    }
+
+    try {
+      // 2. Hacemos la petición inyectando el token en el Header
+      const response = await fetch('http://localhost:8000/api/dashboard', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}` // La palabra Bearer es un estándar HTTP
+        }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`¡Éxito! El servidor dice: ${data.mensaje}`);
+        console.log("Datos secretos:", data);
+      } else {
+        alert(`Fallo de seguridad: ${data.detail}`);
+      }
+    } catch (error) {
+      console.error("Error al conectar con la bóveda", error);
+    }
+  };
+
+  // 💥 Función para destruir el token (Cerrar Sesión)
+  const cerrarSesion = () => {
+    localStorage.removeItem('portfolio_token');
+    alert("Sesión cerrada. El token ha sido destruido.");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="bg-gray-800 p-8 rounded-lg shadow-2xl w-96 border border-gray-700">
@@ -82,7 +120,24 @@ export default function Login() {
             Autenticar
           </button>
         </form>
-      </div>
+        {/* NUEVO BOTÓN PARA PROBAR LA RUTA PROTEGIDA */}
+        <button 
+          onClick={accederAlDashboard} 
+          style={{ marginTop: '20px', backgroundColor: '#4CAF50', width: '100%' }}
+         >
+          Entrar a la Bóveda (Requiere Token)
+        </button>
+
+        {/* BOTÓN PARA DESTRUIR EL TOKEN */}
+        <button 
+          onClick={cerrarSesion} 
+          style={{ marginTop: '10px', backgroundColor: '#ef4444', width: '100%' }}
+          className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-red-700 transition-colors"
+        >
+          Cerrar Sesión (Destruir Token)
+        </button>
+
+    </div>
     </div>
   );
 }
