@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "dompurify": "^3.0.9",
     "framer-motion": "^11.0.8",
     "lucide-react": "^0.344.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-markdown": "^9.0.1",
     "react-router-dom": "^6.22.2"
   },
   "devDependencies": {

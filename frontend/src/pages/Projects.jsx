@@ -93,9 +93,9 @@ export default function Projects() {
                   {project.content}
                 </div>
                 
-                <button className="text-sm font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
+                <Link to={`/projects/${project.id}`} className="text-sm font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors">
                   Leer reporte completo →
-                </button>
+                </Link>
               </motion.div>
             ))}
           </div>
