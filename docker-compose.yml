@@ -1,16 +1,34 @@
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: blog-db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: superpassword
+      POSTGRES_DB: blog_seguro
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   backend:
     build: ./backend
     container_name: blog-backend
     ports:
       - "8000:8000"
+    depends_on:
+      - db
     restart: unless-stopped
 
   frontend:
     build: ./frontend
     container_name: blog-frontend
     ports:
-      - "5173:80" # Mapeamos tu puerto 5173 local al 80 de Nginx
+      - "5173:80"
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  postgres_data:
