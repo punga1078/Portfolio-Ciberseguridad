@@ -10,7 +10,7 @@ export default function Login() {
     setErrorMensaje(''); // Limpiar errores previos
 
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ export default function Login() {
 
     try {
       // 2. Hacemos la petición inyectando el token en el Header
-      const response = await fetch('http://localhost:8000/api/dashboard', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}` // La palabra Bearer es un estándar HTTP

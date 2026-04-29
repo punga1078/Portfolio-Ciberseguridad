@@ -22,7 +22,11 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      args:
+        # Por defecto usará desarrollo, pero lo podemos sobreescribir
+        - MODE=development
     container_name: blog-frontend
     ports:
       - "5173:80"

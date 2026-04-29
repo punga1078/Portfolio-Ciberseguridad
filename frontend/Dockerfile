@@ -6,6 +6,10 @@ COPY package*.json ./
 RUN npm install
 # Copiamos el código y compilamos la versión optimizada
 COPY . .
+# Recibimos el modo (development o staging)
+ARG MODE=development
+# Compilamos usando el archivo .env correspondiente
+RUN npm run build -- --mode $MODE
 RUN npm run build
 
 # ETAPA 2: Producción (Usamos Nginx)
