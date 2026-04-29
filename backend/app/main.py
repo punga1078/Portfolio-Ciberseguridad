@@ -103,6 +103,20 @@ class ProjectResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class CommentCreate(BaseModel):
+    content: str
+
+class CommentResponse(BaseModel):
+    id: int
+    content: str
+    author_email: str
+    
+    class Config:
+        from_attributes = True
+
+class ProjectDetailResponse(ProjectResponse):
+    comments: List[CommentResponse] = []
+
 # 🚀 NUEVO: Endpoint para registrar un administrador inicial
 @app.post("/api/register")
 @limiter.limit("3/minute")
@@ -196,3 +210,43 @@ def create_project(project: ProjectCreate, current_user: models.User = Depends(g
     db.commit()
     db.refresh(new_project)
     return new_project
+
+# 📄 NUEVO: Obtener un Proyecto específico con sus comentarios (Público)
+@app.get("/api/projects/{project_id}", response_model=ProjectDetailResponse)
+def get_project(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    
+    # Construimos la respuesta mapeando el autor de cada comentario
+    comments_data = [
+        CommentResponse(id=c.id, content=c.content, author_email=c.author.email) 
+        for c in project.comments
+    ]
+    
+    return ProjectDetailResponse(
+        id=project.id,
+        title=project.title,
+        content=project.content,
+        project_type=project.project_type,
+        comments=comments_data
+    )
+
+# 💬 NUEVO: Publicar un comentario (Cualquier usuario logueado)
+@app.post("/api/projects/{project_id}/comments", response_model=CommentResponse)
+@limiter.limit("5/minute")
+def create_comment(request: Request, project_id: int, comment: CommentCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+    new_comment = models.Comment(
+        content=comment.content,
+        author_id=current_user.id,
+        project_id=project_id
+    )
+    db.add(new_comment)
+    db.commit()
+    db.refresh(new_comment)
+    
+    return CommentResponse(id=new_comment.id, content=new_comment.content, author_email=current_user.email)
