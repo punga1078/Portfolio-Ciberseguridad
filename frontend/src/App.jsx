@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import DashboardLayout from './components/layout/DashboardLayout';
 import Dashboard from './pages/Dashboard';
+import Projects from './pages/Projects';
+import DashboardProjects from './pages/DashboardProjects';
 
 // Componente para proteger rutas
 const ProtectedRoute = ({ children }) => {
@@ -47,7 +49,8 @@ function App() {
             </PublicRoute>
           } />
           
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/" element={<Navigate to="/projects" replace />} />
           
           <Route path="/dashboard" element={
             <ProtectedRoute>
@@ -55,7 +58,7 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Dashboard />} />
-            {/* Aquí se pueden añadir más subrutas en el futuro, ej. /dashboard/proyectos */}
+            <Route path="editor" element={<DashboardProjects />} />
           </Route>
         </Routes>
       </Router>

@@ -1,6 +1,6 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, LayoutDashboard, Terminal, LogOut, User } from 'lucide-react';
+import { Shield, LayoutDashboard, Terminal, LogOut, User, FileEdit } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function DashboardLayout() {
@@ -26,10 +26,14 @@ export default function DashboardLayout() {
         </div>
         
         <nav className="flex-1 px-4 py-6 space-y-2">
-          <a href="#" className="flex items-center px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+          <Link to="/dashboard" className="flex items-center px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
             <LayoutDashboard className="w-5 h-5 mr-3" />
             Métricas Core
-          </a>
+          </Link>
+          <Link to="/dashboard/editor" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-colors">
+            <FileEdit className="w-5 h-5 mr-3" />
+            Editor de Proyectos
+          </Link>
           <a href="#" className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg transition-colors">
             <Terminal className="w-5 h-5 mr-3" />
             Terminal / Logs
