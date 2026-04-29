@@ -1,8 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+import os
+
+POSTGRES_USER = os.getenv("POSTGRES_USER", "admin")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "superpassword")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "blog_seguro")
+
 # Estructura: postgresql://usuario:password@host:puerto/nombre_db
-SQLALCHEMY_DATABASE_URL = "postgresql://admin:superpassword@db:5432/blog_seguro"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@db:5432/{POSTGRES_DB}"
 
 # El "motor" que maneja la comunicación con Postgres
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

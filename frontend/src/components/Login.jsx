@@ -1,143 +1,103 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { ShieldAlert, KeyRound, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errorMensaje, setErrorMensaje] = useState(''); // Estado para errores
+  const [errorMensaje, setErrorMensaje] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMensaje(''); // Limpiar errores previos
+    setErrorMensaje('');
+    setIsSubmitting(true);
 
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Error en la conexión');
-      }
-
-      // Si llegamos aquí, el login fue exitoso
-      localStorage.setItem('portfolio_token', data.token);
-      
-      alert("¡Login Exitoso! Token guardado de forma segura en el navegador.");
-      console.log("JWT Recibido:", data.token);
-      
-    } catch (error) {
-      setErrorMensaje(error.message);
-    }
-  };
-
-  // 🚀 Función para probar la Bóveda Secreta
-  const accederAlDashboard = async () => {
-    // 1. Buscamos la llave en la mochila (localStorage)
-    const token = localStorage.getItem('portfolio_token');
+    const result = await login(email, password);
     
-    if (!token) {
-      alert("Acceso Denegado: No tienes un token. Inicia sesión primero.");
-      return;
+    if (result.success) {
+      navigate('/dashboard'); // Redirigir suavemente al dashboard
+    } else {
+      setErrorMensaje(result.error);
+      setIsSubmitting(false);
     }
-
-    try {
-      // 2. Hacemos la petición inyectando el token en el Header
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/dashboard`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}` // La palabra Bearer es un estándar HTTP
-        }
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert(`¡Éxito! El servidor dice: ${data.mensaje}`);
-        console.log("Datos secretos:", data);
-      } else {
-        alert(`Fallo de seguridad: ${data.detail}`);
-      }
-    } catch (error) {
-      console.error("Error al conectar con la bóveda", error);
-    }
-  };
-
-  // 💥 Función para destruir el token (Cerrar Sesión)
-  const cerrarSesion = () => {
-    localStorage.removeItem('portfolio_token');
-    alert("Sesión cerrada. El token ha sido destruido.");
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-2xl w-96 border border-gray-700">
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
+      {/* Elementos decorativos cyberpunk/neón de fondo */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-600/20 rounded-full blur-[100px]" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[100px]" />
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-800 z-10"
+      >
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-white">Security Portal</h2>
-          <p className="text-gray-400 mt-2">Acceso Restringido</p>
+          <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4 border border-emerald-500/20">
+            <ShieldAlert className="w-8 h-8 text-emerald-400" />
+          </div>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Security Portal</h2>
+          <p className="text-slate-400 mt-2 text-sm">Autenticación de Nivel Superior Requerida</p>
         </div>
 
-        {/* 🛡️ Alerta de error condicional */}
         {errorMensaje && (
-          <div className="mb-4 bg-red-900/50 border border-red-500 text-red-200 px-4 py-2 rounded-md text-sm text-center">
-            {errorMensaje}
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6 bg-red-950/50 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm flex items-center gap-3"
+          >
+            <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+            <span>{errorMensaje}</span>
+          </motion.div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-300">Email Administrativo</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500"
-              placeholder="admin@dominio.com"
-              required
-            />
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Identificación (Email)</label>
+            <div className="relative">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="block w-full pl-4 pr-10 py-3 bg-slate-950/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all outline-none"
+                placeholder="admin@dominio.com"
+                required
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500"
-              placeholder="••••••••"
-              required
-            />
+            <label className="block text-sm font-medium text-slate-300 mb-1.5">Credencial Cifrada (Contraseña)</label>
+            <div className="relative">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="block w-full pl-4 pr-10 py-3 bg-slate-950/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all outline-none"
+                placeholder="••••••••"
+                required
+              />
+              <KeyRound className="absolute right-3 top-3.5 w-5 h-5 text-slate-500" />
+            </div>
           </div>
 
           <button
             type="submit"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 transition-colors"
+            disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-emerald-500/30 rounded-lg shadow-lg shadow-emerald-500/10 text-sm font-semibold text-white bg-emerald-600/80 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 focus:ring-offset-slate-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Autenticar
+            {isSubmitting ? 'Verificando...' : 'Autenticar Protocolo'}
+            {!isSubmitting && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
-        {/* NUEVO BOTÓN PARA PROBAR LA RUTA PROTEGIDA */}
-        <button 
-          onClick={accederAlDashboard} 
-          style={{ marginTop: '20px', backgroundColor: '#4CAF50', width: '100%' }}
-         >
-          Entrar a la Bóveda (Requiere Token)
-        </button>
-
-        {/* BOTÓN PARA DESTRUIR EL TOKEN */}
-        <button 
-          onClick={cerrarSesion} 
-          style={{ marginTop: '10px', backgroundColor: '#ef4444', width: '100%' }}
-          className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-red-700 transition-colors"
-        >
-          Cerrar Sesión (Destruir Token)
-        </button>
-
-    </div>
+      </motion.div>
     </div>
   );
 }
