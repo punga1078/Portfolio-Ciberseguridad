@@ -41,14 +41,14 @@ export default function Home() {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
-              Facundo Andrés <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-400">
-                Cáceres Tiznado
+              Facundo <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
+                Cáceres
               </span>
             </h1>
             
             <p className="text-lg text-slate-400 mb-8 max-w-xl leading-relaxed">
-              Analista de Ciberseguridad & Tool Developer. Diplomado por UNTREF, con fuerte enfoque en la convergencia entre ofensiva y defensiva (SOC & Pentesting). Construyendo infraestructura segura e identificando vulnerabilidades antes que los atacantes.
+              Analista de Ciberseguridad & Tool Developer. Diplomado por UNTREF, con fuerte enfoque en la convergencia entre ofensiva y defensiva (SOC & Pentesting). Automatizando la detección de amenazas mediante Python y diseñando arquitecturas corporativas resilientes.
             </p>
             
             {/* Redes Sociales */}

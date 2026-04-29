@@ -4,8 +4,6 @@ services:
     container_name: blog-db
     env_file:
       - .env
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -13,8 +11,6 @@ services:
   backend:
     build: ./backend
     container_name: blog-backend
-    ports:
-      - "8000:8000"
     env_file:
       - .env
     depends_on:
@@ -29,7 +25,7 @@ services:
         - MODE=development
     container_name: blog-frontend
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - backend
     restart: unless-stopped
