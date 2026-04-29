@@ -3,6 +3,8 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
+from typing import List
+from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -72,6 +74,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     
     return user
 
+# 👮‍♂️ Guardia de Élite: Solo Admins
+def get_admin_user(current_user: models.User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Acceso denegado: Se requieren privilegios de Administrador")
+    return current_user
+
 # 🛡️ Esquemas de validación (Pydantic)
 class UserCreate(BaseModel):
     email: EmailStr
@@ -80,6 +88,20 @@ class UserCreate(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+class ProjectCreate(BaseModel):
+    title: str
+    content: str
+    project_type: str = "writeup"
+
+class ProjectResponse(BaseModel):
+    id: int
+    title: str
+    content: str
+    project_type: str
+    
+    class Config:
+        from_attributes = True
 
 # 🚀 NUEVO: Endpoint para registrar un administrador inicial
 @app.post("/api/register")
@@ -155,3 +177,22 @@ def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)
             {"id": 3, "type": "ALERT_RESOLVED", "message": "Intento de fuerza bruta mitigado por Rate Limiting", "time": "Hace 5 horas"},
         ]
     }
+
+# 📚 NUEVO: Listar Proyectos (Público)
+@app.get("/api/projects", response_model=List[ProjectResponse])
+def get_projects(db: Session = Depends(get_db)):
+    return db.query(models.Project).order_by(models.Project.created_at.desc()).all()
+
+# 📝 NUEVO: Crear Proyecto (Solo Admin)
+@app.post("/api/projects", response_model=ProjectResponse)
+def create_project(project: ProjectCreate, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    new_project = models.Project(
+        title=project.title,
+        content=project.content,
+        project_type=project.project_type,
+        author_id=current_user.id
+    )
+    db.add(new_project)
+    db.commit()
+    db.refresh(new_project)
+    return new_project
