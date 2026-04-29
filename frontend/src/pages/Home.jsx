@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Shield, Crosshair, Server, Lock, Code2, Terminal } from 'lucide-react';
+import { Shield, Crosshair, Server, Lock, Code2, Terminal, Github, Linkedin, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Home() {
@@ -13,7 +13,7 @@ export default function Home() {
       <header className="h-16 border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-md flex items-center justify-between px-8 z-10 relative">
         <div className="flex items-center gap-2">
           <Shield className="w-6 h-6 text-slate-100" />
-          <span className="font-bold text-lg tracking-wide text-white">Portfolio</span>
+          <span className="font-bold text-lg tracking-wide text-white">Facundo Cáceres</span>
         </div>
         <nav className="flex items-center gap-6">
           <Link to="/projects" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
@@ -41,16 +41,28 @@ export default function Home() {
             </div>
             
             <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight tracking-tight">
-              Asegurando <br />
+              Facundo Andrés <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-red-400">
-                Sistemas
+                Cáceres Tiznado
               </span>
             </h1>
             
-            <p className="text-lg text-slate-400 mb-10 max-w-xl leading-relaxed">
-              Especialista en ciberseguridad enfocado en la convergencia entre ofensiva y defensiva. 
-              Identificando vulnerabilidades antes que los atacantes y construyendo infraestructuras resilientes.
+            <p className="text-lg text-slate-400 mb-8 max-w-xl leading-relaxed">
+              Analista de Ciberseguridad & Tool Developer. Diplomado por UNTREF, con fuerte enfoque en la convergencia entre ofensiva y defensiva (SOC & Pentesting). Construyendo infraestructura segura e identificando vulnerabilidades antes que los atacantes.
             </p>
+            
+            {/* Redes Sociales */}
+            <div className="flex items-center gap-4 mb-10">
+              <a href="https://github.com/punga1078" target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-white hover:border-slate-600 transition-all">
+                <Github className="w-5 h-5" />
+              </a>
+              <a href="https://www.linkedin.com/in/facundo-andres-caceres-tiznado-898709359/" target="_blank" rel="noopener noreferrer" className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-blue-400 hover:border-blue-500/50 transition-all">
+                <Linkedin className="w-5 h-5" />
+              </a>
+              <a href="mailto:facundo.caceres.tiz@gmail.com" className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-slate-400 hover:text-emerald-400 hover:border-emerald-500/50 transition-all">
+                <Mail className="w-5 h-5" />
+              </a>
+            </div>
             
             <div className="flex flex-wrap items-center gap-4">
               <Link to="/projects" className="bg-slate-100 text-slate-950 hover:bg-white px-8 py-3 rounded-lg font-semibold transition-all">
@@ -117,9 +129,9 @@ export default function Home() {
                 Auditorías de seguridad, pruebas de penetración (Pentesting) y simulación de adversarios para identificar vectores de ataque críticos.
               </p>
               <ul className="space-y-2 text-sm text-slate-500 font-medium">
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Web Application Pentesting</li>
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Vulnerability Assessment</li>
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Exploit Development</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Web Pentesting & OWASP Top 10</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Active Directory Exploitation</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Privilege Escalation (Lin/Win)</li>
               </ul>
             </motion.div>
 
@@ -129,12 +141,12 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Blue Team (Defensive)</h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-4">
-                Diseño de arquitecturas seguras, análisis de tráfico, monitorización de incidentes y endurecimiento (hardening) de servidores.
+                Diseño de arquitecturas seguras, análisis forense (DFIR), monitorización de incidentes en entornos SOC y Threat Intelligence.
               </p>
               <ul className="space-y-2 text-sm text-slate-500 font-medium">
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Security Operations (SecOps)</li>
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Incident Response</li>
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Log Analysis & SIEM</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> SIEM (Splunk) & Log Analysis</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> DFIR & Incident Response</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Wireshark & Traffic Analysis</li>
               </ul>
             </motion.div>
 
@@ -142,14 +154,14 @@ export default function Home() {
               <div className="w-12 h-12 bg-slate-500/10 rounded-xl flex items-center justify-center mb-6">
                 <Code2 className="w-6 h-6 text-slate-400" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-3">DevSecOps & Coding</h3>
+              <h3 className="text-xl font-bold text-white mb-3">DevSecOps & Tooling</h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-4">
-                Integración de seguridad en el ciclo de vida del desarrollo. Automatización y creación de herramientas personalizadas.
+                Desarrollo de herramientas de seguridad defensiva, automatización de tareas y despliegue de honeypots en contenedores.
               </p>
               <ul className="space-y-2 text-sm text-slate-500 font-medium">
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div> Python / Bash Scripting</li>
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div> Docker / Contenedores Seguros</li>
-                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div> Secure CI/CD Pipelines</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div> Python Scripting & Tool Dev</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div> Docker & Honeypot Deployment</li>
+                <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-slate-400"></div> Threat Hunting Automation</li>
               </ul>
             </motion.div>
           </div>
