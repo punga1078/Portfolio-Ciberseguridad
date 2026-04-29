@@ -59,13 +59,17 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 # 🚀 ACTUALIZADO: Endpoint de Login conectado a PostgreSQL
 @app.post("/api/login")
 def login(credenciales: LoginRequest, db: Session = Depends(get_db)):
-    # 1. Buscar al usuario por email en la base de datos
     user = db.query(models.User).filter(models.User.email == credenciales.email).first()
     
-    # 2. Si no existe, o si la contraseña no coincide con el hash, bloqueamos el acceso
     if not user or not security.verify_password(credenciales.password, user.hashed_password):
-        # Mensaje genérico (Práctica Blue Team) para no revelar qué dato falló
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
-    # 3. Si todo está correcto, damos acceso (pronto agregaremos el JWT aquí)
-    return {"mensaje": "Autenticación exitosa", "token": "jwt-pendiente"}
+    # 🚀 NUEVO: Generamos el token JWT guardando el correo del usuario en su interior ("sub" = subject)
+    token = security.create_access_token(data={"sub": user.email})
+    
+    # Devolvemos el token al frontend
+    return {
+        "mensaje": "Autenticación exitosa", 
+        "token": token,
+        "token_type": "bearer"
+    }
