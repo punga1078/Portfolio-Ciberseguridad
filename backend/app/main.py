@@ -250,3 +250,14 @@ def create_comment(request: Request, project_id: int, comment: CommentCreate, cu
     db.refresh(new_comment)
     
     return CommentResponse(id=new_comment.id, content=new_comment.content, author_email=current_user.email)
+
+# 🗑️ NUEVO: Eliminar un proyecto (Solo Admin)
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: int, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+        
+    db.delete(project)
+    db.commit()
+    return {"mensaje": "Proyecto eliminado exitosamente"}

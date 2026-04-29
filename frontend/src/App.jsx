@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import DashboardLayout from './components/layout/DashboardLayout';
 import Dashboard from './pages/Dashboard';
+import Home from './pages/Home';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import DashboardProjects from './pages/DashboardProjects';
@@ -50,9 +51,9 @@ function App() {
             </PublicRoute>
           } />
           
+          <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
-          <Route path="/" element={<Navigate to="/projects" replace />} />
           
           <Route path="/dashboard" element={
             <ProtectedRoute>
