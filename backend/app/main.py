@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Importamos nuestros módulos locales
 from . import models, security
@@ -13,6 +16,11 @@ from .database import engine, SessionLocal
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mi Blog Seguro API")
+
+# 🛡️ Configuración Rate Limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 🛡️ Configuración CORS
 app.add_middleware(
@@ -35,12 +43,18 @@ def get_db():
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 # 👮‍♂️ El Guardia de Seguridad: Verifica el JWT en cada petición protegida
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    token = request.cookies.get("access_token")
+    
     excepcion_credenciales = HTTPException(
         status_code=401,
         detail="No se pudieron validar las credenciales o el token expiró",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="No autenticado. Token faltante.")
+        
     try:
         # Intentamos decodificar el token con nuestra llave maestra
         payload = jwt.decode(token, security.SECRET_KEY, algorithms=[security.ALGORITHM])
@@ -69,7 +83,8 @@ class LoginRequest(BaseModel):
 
 # 🚀 NUEVO: Endpoint para registrar un administrador inicial
 @app.post("/api/register")
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def register_user(request: Request, user: UserCreate, db: Session = Depends(get_db)):
     # 1. Verificar si el correo ya existe
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
@@ -85,30 +100,58 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     
     return {"mensaje": "Usuario creado exitosamente"}
 
-# 🚀 ACTUALIZADO: Endpoint de Login conectado a PostgreSQL
+# 🚀 ACTUALIZADO: Endpoint de Login conectado a PostgreSQL con Cookies HttpOnly
 @app.post("/api/login")
-def login(credenciales: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, credenciales: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == credenciales.email).first()
     
     if not user or not security.verify_password(credenciales.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     
-    # 🚀 NUEVO: Generamos el token JWT guardando el correo del usuario en su interior ("sub" = subject)
+    # Generamos el token JWT guardando el correo del usuario en su interior ("sub" = subject)
     token = security.create_access_token(data={"sub": user.email})
     
-    # Devolvemos el token al frontend
+    # 🛡️ Establecemos la cookie HttpOnly
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False, # Cambiar a True en producción (HTTPS)
+        max_age=security.ACCESS_TOKEN_EXPIRE_MINUTES * 60, # Expiración en segundos
+    )
+    
+    return {"mensaje": "Autenticación exitosa"}
+
+# 🚪 NUEVO: Endpoint de Logout para destruir la cookie
+@app.post("/api/logout")
+def logout(response: Response):
+    response.delete_cookie("access_token")
+    return {"mensaje": "Sesión cerrada correctamente"}
+
+# 🔍 NUEVO: Endpoint para verificar sesión activa (Usado por React Router)
+@app.get("/api/auth/me")
+def read_users_me(current_user: models.User = Depends(get_current_user)):
     return {
-        "mensaje": "Autenticación exitosa", 
-        "token": token,
-        "token_type": "bearer"
+        "email": current_user.email,
+        "rol": "Administrador Security"
     }
 
-# 🔒 NUEVO: Ruta Protegida (El Dashboard del Portfolio)
+# 🔒 ACTUALIZADO: Ruta Protegida (El Dashboard del Portfolio)
 @app.get("/api/dashboard")
 def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)):
-    # Si el código llega hasta aquí, significa que el guardia (get_current_user) aprobó el token
+    # Datos mockeados de Ciberseguridad para el UI Premium
     return {
-        "mensaje": f"¡Bienvenido a la bóveda, {current_user.email}!",
-        "datos_secretos": "Aquí irán los proyectos privados de tu Portfolio",
-        "rol": "Administrador"
+        "metrics": {
+            "active_alerts": 3,
+            "resolved_ctfs": 42,
+            "secured_systems": 15,
+            "uptime_days": 128
+        },
+        "recent_activity": [
+            {"id": 1, "type": "LOGIN_SUCCESS", "message": f"Acceso concedido a {current_user.email}", "time": "Justo ahora"},
+            {"id": 2, "type": "SCAN_COMPLETE", "message": "Análisis de vulnerabilidades web finalizado sin hallazgos", "time": "Hace 2 horas"},
+            {"id": 3, "type": "ALERT_RESOLVED", "message": "Intento de fuerza bruta mitigado por Rate Limiting", "time": "Hace 5 horas"},
+        ]
     }
