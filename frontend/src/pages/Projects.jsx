@@ -33,13 +33,16 @@ export default function Projects() {
 
       {/* Header Público */}
       <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-8 z-10 relative">
-        <div className="flex items-center gap-2">
-          <Shield className="w-6 h-6 text-emerald-400" />
-          <span className="font-bold text-lg text-white">Security Portfolio</span>
-        </div>
-        <nav className="flex items-center gap-4">
-          <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
-            Acceso Autorizado
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Shield className="w-6 h-6 text-slate-100" />
+          <span className="font-bold text-lg text-white">Portfolio</span>
+        </Link>
+        <nav className="flex items-center gap-6">
+          <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+            Sobre Mí
+          </Link>
+          <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
+            Login
           </Link>
         </nav>
       </header>
