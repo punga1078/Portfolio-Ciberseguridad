@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: ./backend
+    container_name: blog-backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: blog-frontend
+    ports:
+      - "5173:80" # Mapeamos tu puerto 5173 local al 80 de Nginx
+    depends_on:
+      - backend
+    restart: unless-stopped
