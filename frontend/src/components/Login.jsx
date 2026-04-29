@@ -25,9 +25,11 @@ export default function Login() {
       }
 
       // Si llegamos aquí, el login fue exitoso
-      alert("¡Login Exitoso! Token recibido: " + data.token);
-      console.log(data);
-
+      localStorage.setItem('portfolio_token', data.token);
+      
+      alert("¡Login Exitoso! Token guardado de forma segura en el navegador.");
+      console.log("JWT Recibido:", data.token);
+      
     } catch (error) {
       setErrorMensaje(error.message);
     }
