@@ -1,10 +1,18 @@
 import { motion } from 'framer-motion';
 import { Shield, Crosshair, Server, Lock, Code2, Terminal, Github, Linkedin, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import TerminalSimulator from '../components/TerminalSimulator';
+import { Helmet } from 'react-helmet-async';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 relative overflow-hidden font-sans">
+      <Helmet>
+        <title>Facundo Cáceres | Cybersecurity Portfolio</title>
+        <meta name="description" content="Portfolio de Facundo Cáceres. Especialista en Ciberseguridad, Pentester y Analista de Malware." />
+        <meta property="og:title" content="Facundo Cáceres | Cybersecurity Portfolio" />
+      </Helmet>
+
       {/* Background elegant accents: Blue (Defensive) and Red (Offensive) */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-red-600/5 rounded-full blur-[120px] pointer-events-none" />
@@ -78,37 +86,9 @@ export default function Home() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative"
+            className="relative w-full flex items-center justify-center"
           >
-            {/* Elemento Visual Abstracto (Elegante) */}
-            <div className="aspect-square max-w-md mx-auto relative">
-              <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/10 to-red-500/10 rounded-3xl border border-slate-800/50 backdrop-blur-sm transform rotate-3 hover:rotate-0 transition-transform duration-500"></div>
-              <div className="absolute inset-0 bg-slate-900/80 rounded-3xl border border-slate-800 shadow-2xl p-8 flex flex-col justify-between transform -rotate-3 hover:rotate-0 transition-transform duration-500">
-                <div className="flex justify-between items-start">
-                  <Terminal className="w-8 h-8 text-slate-500" />
-                  <div className="flex gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500/50"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-500/50"></div>
-                    <div className="w-3 h-3 rounded-full bg-green-500/50"></div>
-                  </div>
-                </div>
-                <div className="space-y-4 font-mono text-sm">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span className="text-blue-400">root@sys</span><span>:</span><span className="text-slate-500">~</span><span>#</span>
-                    <span className="text-slate-300 typing-effect"> nmap -sV -p- target</span>
-                  </div>
-                  <div className="text-slate-500">Starting Nmap 7.93...</div>
-                  <div className="text-emerald-500/70 opacity-70">Discovered open port 22/tcp</div>
-                  <div className="text-emerald-500/70 opacity-70">Discovered open port 80/tcp</div>
-                  <div className="text-emerald-500/70 opacity-70">Discovered open port 443/tcp</div>
-                  <div className="text-red-400/80 mt-4 animate-pulse">Vulnerability detected: CVE-2024-XXXX</div>
-                  <div className="flex items-center gap-2 text-slate-400 mt-4">
-                    <span className="text-blue-400">root@sys</span><span>:</span><span className="text-slate-500">~</span><span>#</span>
-                    <span className="w-2 h-4 bg-slate-300 animate-bounce"></span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <TerminalSimulator />
           </motion.div>
         </div>
 
