@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Shield, ArrowLeft, MessageSquare, Send, ShieldAlert, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import DOMPurify from 'dompurify';
+import { Helmet } from 'react-helmet-async';
 import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -81,11 +82,18 @@ export default function ProjectDetail() {
     );
   }
 
-  // 🛡️ SANITIZACIÓN: Limpiamos el markdown antes de renderizarlo para evitar XSS Almacenado
-  const safeContent = DOMPurify.sanitize(project.content);
+  // 🛡️ SANITIZACIÓN: El contenido será sanitizado por rehype-sanitize al renderizarse
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
+      <Helmet>
+        <title>{project.title} | Security Portfolio</title>
+        <meta name="description" content={project.content.substring(0, 150) + "..."} />
+        <meta property="og:title" content={project.title} />
+        <meta property="og:description" content={project.content.substring(0, 150) + "..."} />
+        <meta property="og:type" content="article" />
+      </Helmet>
+
       {/* Header Público */}
       <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center px-8 sticky top-0 z-50">
         <Link to="/projects" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
@@ -110,7 +118,7 @@ export default function ProjectDetail() {
           
           {/* 🛡️ Renderizado Seguro de Markdown */}
           <div className="prose prose-invert prose-emerald max-w-none">
-            <ReactMarkdown>{safeContent}</ReactMarkdown>
+            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{project.content}</ReactMarkdown>
           </div>
         </motion.article>
 

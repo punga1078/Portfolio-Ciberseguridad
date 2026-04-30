@@ -1,7 +1,22 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from .database import Base
+
+project_tags = Table(
+    "project_tags",
+    Base.metadata,
+    Column("project_id", Integer, ForeignKey("projects.id")),
+    Column("tag_id", Integer, ForeignKey("tags.id"))
+)
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    
+    projects = relationship("Project", secondary=project_tags, back_populates="tags")
 
 class User(Base):
     __tablename__ = "users"
@@ -27,6 +42,7 @@ class Project(Base):
     author_id = Column(Integer, ForeignKey("users.id"))
     author = relationship("User", back_populates="projects")
     comments = relationship("Comment", back_populates="project", cascade="all, delete-orphan")
+    tags = relationship("Tag", secondary=project_tags, back_populates="projects")
 
 class Comment(Base):
     __tablename__ = "comments"

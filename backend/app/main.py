@@ -1,14 +1,15 @@
 from fastapi import FastAPI, HTTPException, Depends, Response, Request
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
-from typing import List
-from sqlalchemy.orm import Session
+from typing import List, Optional
 from jose import JWTError, jwt
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+import os
 
 # Importamos nuestros módulos locales
 from . import models, security
@@ -19,15 +20,19 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mi Blog Seguro API")
 
+# 🛡️ Configurar Proxy Headers ANTES que el resto para confiar en X-Forwarded-For
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
 # 🛡️ Configuración Rate Limiting
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 🛡️ Configuración CORS
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://192.168.1.53:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://192.168.1.53:5173"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -90,21 +95,28 @@ class LoginRequest(BaseModel):
     password: str
 
 class ProjectCreate(BaseModel):
-    title: str
-    content: str
+    title: str = Field(..., max_length=150)
+    content: str = Field(..., max_length=50000)
     project_type: str = "writeup"
+    tags: List[str] = []
+
+class TagResponse(BaseModel):
+    name: str
+    class Config:
+        from_attributes = True
 
 class ProjectResponse(BaseModel):
     id: int
     title: str
     content: str
     project_type: str
+    tags: List[TagResponse] = []
     
     class Config:
         from_attributes = True
 
 class CommentCreate(BaseModel):
-    content: str
+    content: str = Field(..., max_length=1000)
 
 class CommentResponse(BaseModel):
     id: int
@@ -121,6 +133,9 @@ class ProjectDetailResponse(ProjectResponse):
 @app.post("/api/register")
 @limiter.limit("3/minute")
 def register_user(request: Request, user: UserCreate, db: Session = Depends(get_db)):
+    # Deshabilitado por seguridad en entorno productivo (Portfolio)
+    raise HTTPException(status_code=403, detail="El registro público está deshabilitado por razones de seguridad. Contacte al administrador.")
+    
     # 1. Verificar si el correo ya existe
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
@@ -194,8 +209,15 @@ def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)
 
 # 📚 NUEVO: Listar Proyectos (Público)
 @app.get("/api/projects", response_model=List[ProjectResponse])
-def get_projects(db: Session = Depends(get_db)):
-    return db.query(models.Project).order_by(models.Project.created_at.desc()).all()
+def get_projects(q: Optional[str] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Project)
+    if q:
+        query = query.filter(
+            models.Project.title.ilike(f"%{q}%") | 
+            models.Project.content.ilike(f"%{q}%") | 
+            models.Project.tags.any(models.Tag.name.ilike(f"%{q}%"))
+        )
+    return query.order_by(models.Project.created_at.desc()).all()
 
 # 📝 NUEVO: Crear Proyecto (Solo Admin)
 @app.post("/api/projects", response_model=ProjectResponse)
@@ -206,6 +228,17 @@ def create_project(project: ProjectCreate, current_user: models.User = Depends(g
         project_type=project.project_type,
         author_id=current_user.id
     )
+    
+    # Manejo de tags
+    for tag_name in project.tags:
+        tag_name_clean = tag_name.strip().lower()
+        if not tag_name_clean: continue
+        tag = db.query(models.Tag).filter(models.Tag.name == tag_name_clean).first()
+        if not tag:
+            tag = models.Tag(name=tag_name_clean)
+            db.add(tag)
+        new_project.tags.append(tag)
+
     db.add(new_project)
     db.commit()
     db.refresh(new_project)

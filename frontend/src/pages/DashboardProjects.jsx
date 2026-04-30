@@ -10,6 +10,7 @@ export default function DashboardProjects() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState('writeup');
+  const [tagsInput, setTagsInput] = useState('');
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
@@ -61,13 +62,19 @@ export default function DashboardProjects() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title, content, project_type: type })
+        body: JSON.stringify({ 
+          title, 
+          content, 
+          project_type: type,
+          tags: tagsInput.split(',').map(t => t.trim()).filter(t => t)
+        })
       });
 
       if (res.ok) {
         setMessage({ type: 'success', text: 'Publicación creada exitosamente.' });
         setTitle('');
         setContent('');
+        setTagsInput('');
         setTimeout(() => setView('list'), 1500); // Volver a la lista después de crear
       } else {
         const errorData = await res.json();
@@ -196,6 +203,17 @@ export default function DashboardProjects() {
                   <option value="code">Código / Herramienta</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Etiquetas (separadas por comas)</label>
+              <input
+                type="text"
+                value={tagsInput}
+                onChange={(e) => setTagsInput(e.target.value)}
+                className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all"
+                placeholder="Ej: web, xss, bugbounty"
+              />
             </div>
 
             <div>
