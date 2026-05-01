@@ -1,10 +1,19 @@
 import { motion } from 'framer-motion';
-import { Shield, Crosshair, Server, Lock, Code2, Terminal, Github, Linkedin, Mail } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Shield, Crosshair, Server, Lock, Code2, Terminal, Github, Linkedin, Mail, LogOut, LayoutDashboard, Globe, Download } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import TerminalSimulator from '../components/TerminalSimulator';
 import { Helmet } from 'react-helmet-async';
+import { useAuth } from '../context/AuthContext';
 
 export default function Home() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 relative overflow-hidden font-sans">
       <Helmet>
@@ -27,9 +36,32 @@ export default function Home() {
           <Link to="/projects" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
             Investigaciones
           </Link>
-          <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
-            Login
+          <Link to="/threat-map" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            Threat Map
           </Link>
+          
+          {user ? (
+            <div className="flex items-center gap-4">
+              {user.rol === 'admin' && (
+                <Link to="/dashboard" className="flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </Link>
+              )}
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-red-400 transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-red-500/5"
+              >
+                <LogOut className="w-4 h-4" />
+                Salir
+              </button>
+            </div>
+          ) : (
+            <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
+              Login
+            </Link>
+          )}
         </nav>
       </header>
 
@@ -76,9 +108,14 @@ export default function Home() {
               <Link to="/projects" className="bg-slate-100 text-slate-950 hover:bg-white px-8 py-3 rounded-lg font-semibold transition-all">
                 Ver Investigaciones
               </Link>
-              <a href="#skills" className="px-8 py-3 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-slate-900 transition-all border border-slate-800">
-                Habilidades Core
+              <a href="/CV_Facundo_Caceres.pdf" download className="px-8 py-3 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-slate-900 transition-all border border-slate-800 flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Descargar CV
               </a>
+              <Link to="/threat-map" className="px-8 py-3 rounded-lg font-semibold text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 border border-emerald-500/20 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                <Globe className="w-5 h-5" />
+                Threat Map LIVE
+              </Link>
             </div>
           </motion.div>
 

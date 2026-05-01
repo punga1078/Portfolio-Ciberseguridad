@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Table
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Table, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from .database import Base
@@ -43,6 +43,18 @@ class Project(Base):
     author = relationship("User", back_populates="projects")
     comments = relationship("Comment", back_populates="project", cascade="all, delete-orphan")
     tags = relationship("Tag", secondary=project_tags, back_populates="projects")
+
+class HoneypotEvent(Base):
+    __tablename__ = "honeypot_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, nullable=False)
+    path = Column(String, nullable=False)
+    user_agent = Column(String)
+    country = Column(String, default="Unknown")
+    lat = Column(Float, nullable=True)
+    lon = Column(Float, nullable=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Comment(Base):
     __tablename__ = "comments"

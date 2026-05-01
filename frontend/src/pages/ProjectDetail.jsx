@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Shield, ArrowLeft, MessageSquare, Send, ShieldAlert, CheckCircle } from 'lucide-react';
+import { Shield, ArrowLeft, MessageSquare, Send, ShieldAlert, CheckCircle, LayoutDashboard, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Helmet } from 'react-helmet-async';
 import ReactMarkdown from 'react-markdown';
@@ -95,11 +95,33 @@ export default function ProjectDetail() {
       </Helmet>
 
       {/* Header Público */}
-      <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center px-8 sticky top-0 z-50">
+      <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-50">
         <Link to="/projects" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span>Volver</span>
         </Link>
+
+        <div className="flex items-center gap-6">
+          <Link to="/threat-map" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            Threat Map
+          </Link>
+          {user ? (
+            <div className="flex items-center gap-4">
+              {user.rol === 'admin' && (
+                <Link to="/dashboard" className="flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </Link>
+              )}
+              <span className="text-xs text-slate-500 hidden sm:block">{user.email}</span>
+            </div>
+          ) : (
+            <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
+              Login
+            </Link>
+          )}
+        </div>
       </header>
 
       <main className="max-w-4xl mx-auto py-12 px-6">

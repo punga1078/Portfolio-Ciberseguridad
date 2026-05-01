@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Code, Terminal, Shield, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { BookOpen, Code, Terminal, Shield, Search, LogOut, LayoutDashboard, Globe } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { useAuth } from '../context/AuthContext';
 
 export default function Projects() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   const fetchProjects = async (query = '') => {
     setLoading(true);
@@ -57,9 +64,32 @@ export default function Projects() {
           <Link to="/" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
             Sobre Mí
           </Link>
-          <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
-            Login
+          <Link to="/threat-map" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            Threat Map
           </Link>
+          
+          {user ? (
+            <div className="flex items-center gap-4">
+              {user.rol === 'admin' && (
+                <Link to="/dashboard" className="flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                  <LayoutDashboard className="w-4 h-4" />
+                  Dashboard
+                </Link>
+              )}
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-red-400 transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-red-500/5"
+              >
+                <LogOut className="w-4 h-4" />
+                Salir
+              </button>
+            </div>
+          ) : (
+            <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
+              Login
+            </Link>
+          )}
         </nav>
       </header>
 

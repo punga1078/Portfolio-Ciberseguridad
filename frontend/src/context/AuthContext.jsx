@@ -47,6 +47,21 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const register = async (email, password) => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (res.ok) {
+      return { success: true };
+    } else {
+      const data = await res.json();
+      return { success: false, error: data.detail || 'Error al registrarse' };
+    }
+  };
+
   const logout = async () => {
     try {
       await fetch(`${import.meta.env.VITE_API_URL}/api/logout`, {
@@ -60,7 +75,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

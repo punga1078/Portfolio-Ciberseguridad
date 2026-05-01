@@ -1,21 +1,35 @@
 import { useState, useRef, useEffect } from 'react';
 import { Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 export default function TerminalSimulator() {
   const [history, setHistory] = useState([
-    { text: "Security Portal [Versión 2.0.1]", type: "system" },
+    { text: "Security Portal [Versión 2.0.2]", type: "system" },
     { text: "Escribe 'help' para ver los comandos disponibles.", type: "system" }
   ]);
   const [input, setInput] = useState('');
+  const [projects, setProjects] = useState([]);
   const containerRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Cargar proyectos para que la terminal esté sincronizada
+    fetch(`${import.meta.env.VITE_API_URL}/api/projects`)
+      .then(res => res.json())
+      .then(data => setProjects(data))
+      .catch(err => console.error("Error cargando proyectos en terminal", err));
+  }, []);
 
   const commands = {
-    help: "Comandos disponibles:\n  whoami  - Ver información de perfil\n  skills  - Listar habilidades técnicas\n  clear   - Limpiar pantalla\n  contact - Mostrar información de contacto\n  sudo    - ???",
+    help: "Comandos disponibles:\n  whoami   - Ver información de perfil\n  skills   - Listar habilidades técnicas\n  projects - Listar investigaciones/writeups reales\n  clear    - Limpiar pantalla\n  contact  - Mostrar información de contacto\n  sudo     - ???",
     whoami: "Especialista en Ciberseguridad | Pentester & Analista.\nEnfocado en identificar vulnerabilidades y asegurar infraestructuras críticas.",
     skills: "Habilidades Técnicas:\n  [+] Web Security (OWASP Top 10)\n  [+] Network Penetration Testing\n  [+] Python, Bash, Go Scripting\n  [+] Cloud Security & DevOps",
     contact: "Contacto:\n  Email: facundo.caceres.tiz@gmail.com\n  LinkedIn: <a href='https://www.linkedin.com/in/facundo-andres-caceres-tiznado-898709359/' target='_blank' rel='noopener noreferrer' class='text-blue-400 hover:text-blue-300 underline'>/in/facundo-caceres</a>",
-    sudo: "Acceso denegado. Este incidente ha sido reportado y registrado."
+    sudo: "Acceso denegado. Este incidente ha sido reportado y registrado.",
+    projects: projects.length > 0 
+      ? "Investigaciones Actuales en el Servidor:\n" + projects.map(p => `  [+] ${p.titulo}`).join('\n') + "\n\nTip: Puedes ver el detalle navegando a la sección de Investigaciones."
+      : "No hay investigaciones publicadas actualmente."
   };
 
   const handleCommand = (e) => {
@@ -27,6 +41,8 @@ export default function TerminalSimulator() {
 
     if (cmd === 'clear') {
       setHistory([]);
+    } else if (cmd === 'projects_nav') {
+      navigate('/projects');
     } else {
       const response = commands[cmd] || `bash: ${cmd}: command not found`;
       newHistory.push({ text: response, type: "response" });
