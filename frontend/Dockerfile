@@ -10,7 +10,6 @@ COPY . .
 ARG MODE=development
 # Compilamos usando el archivo .env correspondiente
 RUN npm run build -- --mode $MODE
-RUN npm run build
 
 # ETAPA 2: Producción (Usamos Nginx)
 FROM nginx:alpine

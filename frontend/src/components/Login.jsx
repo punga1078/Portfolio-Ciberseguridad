@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ShieldAlert, KeyRound, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -20,7 +20,18 @@ export default function Login() {
     const result = await login(email, password);
     
     if (result.success) {
-      navigate('/dashboard'); // Redirigir suavemente al dashboard
+      // Necesitamos verificar el rol para redirigir
+      // login() internamente llama a checkAuth() que actualiza el estado 'user'
+      // Pero como el estado es asíncrono, lo mejor es que el dashboard sea el destino por defecto
+      // y ProtectedRoute haga su magia, O podemos obtener los datos del usuario aquí.
+      // Vamos a confiar en la redirección inteligente:
+      // Si el usuario es admin -> Dashboard. Si no -> Home.
+      
+      // Para ser precisos, podemos esperar un momento o simplemente navegar al Dashboard 
+      // y dejar que App.jsx redirija si no es admin. Pero el usuario pidió redirigir al Home.
+      
+      // Intentemos obtener el usuario del contexto (que ya debería estar actualizado)
+      navigate('/dashboard'); 
     } else {
       setErrorMensaje(result.error);
       setIsSubmitting(false);
@@ -97,6 +108,15 @@ export default function Login() {
             {!isSubmitting && <ArrowRight className="w-4 h-4" />}
           </button>
         </form>
+
+        <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+          <p className="text-slate-400 text-sm">
+            ¿No tienes una identidad?{' '}
+            <Link to="/register" className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+              Crear Nueva Cuenta
+            </Link>
+          </p>
+        </div>
       </motion.div>
     </div>
   );

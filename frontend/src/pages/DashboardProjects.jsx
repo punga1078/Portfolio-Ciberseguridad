@@ -87,7 +87,7 @@ export default function DashboardProjects() {
     }
   };
 
-  if (user?.rol !== 'Administrador Security') {
+  if (user?.rol !== 'admin') {
     return (
       <div className="p-8 text-center text-red-400">
         <ShieldAlert className="w-12 h-12 mx-auto mb-4" />

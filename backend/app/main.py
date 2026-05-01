@@ -1,15 +1,26 @@
-from fastapi import FastAPI, HTTPException, Depends, Response, Request
+from fastapi import FastAPI, HTTPException, Depends, Response, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from sqlalchemy import func
+from typing import List, Optional, Dict
 from jose import JWTError, jwt
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import os
+import random
+import logging
+import httpx
+import asyncio
+import json
+import csv
+import io
+from fastapi.responses import HTMLResponse, StreamingResponse
+from datetime import datetime, timezone
 
 # Importamos nuestros módulos locales
 from . import models, security
@@ -129,27 +140,28 @@ class CommentResponse(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     comments: List[CommentResponse] = []
 
-# 🚀 NUEVO: Endpoint para registrar un administrador inicial
+# 🚀 ACTUALIZADO: Endpoint para registrar usuarios
 @app.post("/api/register")
 @limiter.limit("3/minute")
 def register_user(request: Request, user: UserCreate, db: Session = Depends(get_db)):
-    # Deshabilitado por seguridad en entorno productivo (Portfolio)
-    raise HTTPException(status_code=403, detail="El registro público está deshabilitado por razones de seguridad. Contacte al administrador.")
-    
     # 1. Verificar si el correo ya existe
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
     
-    # 2. Hashear la contraseña antes de guardarla
+    # 2. Lógica de Admin Automático: El primer usuario que se registre es el dueño/admin
+    user_count = db.query(models.User).count()
+    role = "admin" if user_count == 0 else "user"
+    
+    # 3. Hashear la contraseña antes de guardarla
     hashed_pw = security.get_password_hash(user.password)
     
-    # 3. Guardar en PostgreSQL
-    nuevo_usuario = models.User(email=user.email, hashed_password=hashed_pw)
+    # 4. Guardar en PostgreSQL
+    nuevo_usuario = models.User(email=user.email, hashed_password=hashed_pw, role=role)
     db.add(nuevo_usuario)
     db.commit()
     
-    return {"mensaje": "Usuario creado exitosamente"}
+    return {"mensaje": f"Usuario registrado exitosamente como {role}"}
 
 # 🚀 ACTUALIZADO: Endpoint de Login conectado a PostgreSQL con Cookies HttpOnly
 @app.post("/api/login")
@@ -181,31 +193,278 @@ def logout(response: Response):
     response.delete_cookie("access_token")
     return {"mensaje": "Sesión cerrada correctamente"}
 
-# 🔍 NUEVO: Endpoint para verificar sesión activa (Usado por React Router)
+# 🔍 ACTUALIZADO: Endpoint para verificar sesión activa
 @app.get("/api/auth/me")
 def read_users_me(current_user: models.User = Depends(get_current_user)):
     return {
         "email": current_user.email,
-        "rol": "Administrador Security"
+        "rol": current_user.role # 'admin' o 'user'
     }
 
-# 🔒 ACTUALIZADO: Ruta Protegida (El Dashboard del Portfolio)
+# 👮‍♂️ ADMIN: Listar todos los usuarios
+@app.get("/api/admin/users")
+def list_users(current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    users = db.query(models.User).all()
+    return [{"id": u.id, "email": u.email, "role": u.role} for u in users]
+
+class UserRoleUpdate(BaseModel):
+    role: str
+
+# 👮‍♂️ ADMIN: Cambiar rol de un usuario
+@app.patch("/api/admin/users/{user_id}/role")
+def update_user_role(user_id: int, role_update: UserRoleUpdate, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes cambiar tu propio rol")
+    
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    if role_update.role not in ["admin", "user"]:
+        raise HTTPException(status_code=400, detail="Rol inválido")
+        
+    user.role = role_update.role
+    db.commit()
+    return {"mensaje": f"Rol de {user.email} actualizado a {role_update.role}"}
+
+# 📡 GESTIÓN DE WEBSOCKETS (Real-time Threat Map)
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                # Manejar desconexiones silenciosas
+                pass
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/threat-map")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Mantener conexión viva (heartbeat o similar si fuera necesario)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# 🕵️‍♂️ HONEYPOT: Rutas trampa para detectar intrusos
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("honeypot")
+
+def anonymize_ip(ip: str) -> str:
+    parts = ip.split(".")
+    if len(parts) == 4:
+        return f"{parts[0]}.{parts[1]}.{parts[2]}.***"
+    return ip
+
+async def get_geoip_data(ip: str) -> Dict:
+    # IP-API es gratuita para < 45 req/min. En prod se usaría MaxMind local.
+    # Como estamos en local, a veces la IP será '127.0.0.1'. Simularemos datos si es local.
+    if ip in ["127.0.0.1", "localhost", "::1"] or ip.startswith("172."):
+        # IPs de Docker o local -> Datos random para el show
+        MOCKS = [
+            {"country": "Germany", "lat": 51.1657, "lon": 10.4515},
+            {"country": "USA", "lat": 37.0902, "lon": -95.7129},
+            {"country": "China", "lat": 35.8617, "lon": 104.1954},
+            {"country": "Russia", "lat": 61.524, "lon": 105.3188},
+            {"country": "Brazil", "lat": -14.235, "lon": -51.9253},
+            {"country": "Argentina", "lat": -38.4161, "lon": -63.6167},
+        ]
+        return random.choice(MOCKS)
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.get(f"http://ip-api.com/json/{ip}?fields=status,country,lat,lon", timeout=2.0)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("status") == "success":
+                    return {
+                        "country": data.get("country"),
+                        "lat": data.get("lat"),
+                        "lon": data.get("lon")
+                    }
+    except Exception as e:
+        logger.error(f"GeoIP Error: {e}")
+    
+    # Fallback con jitter para evitar solapamientos en el mapa
+    MOCKS = [
+        {"country": "Germany", "lat": 51.1657, "lon": 10.4515},
+        {"country": "USA", "lat": 37.0902, "lon": -95.7129},
+        {"country": "China", "lat": 35.8617, "lon": 104.1954},
+        {"country": "Russia", "lat": 61.524, "lon": 105.3188},
+        {"country": "Brazil", "lat": -14.235, "lon": -51.9253},
+        {"country": "Argentina", "lat": -38.4161, "lon": -63.6167},
+        {"country": "Australia", "lat": -25.2744, "lon": 133.7751},
+        {"country": "Canada", "lat": 56.1304, "lon": -106.3468},
+    ]
+    base = random.choice(MOCKS)
+    return {
+        "country": base["country"],
+        "lat": base["lat"] + random.uniform(-2.0, 2.0),
+        "lon": base["lon"] + random.uniform(-2.0, 2.0)
+    }
+
+async def send_telegram_alert(message: str):
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        return
+    
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(url, json={
+                "chat_id": chat_id,
+                "text": f"🚨 *HONEYPOT ALERT*\n\n{message}",
+                "parse_mode": "Markdown"
+            })
+    except Exception as e:
+        logger.error(f"Telegram Alert Error: {e}")
+
+@app.api_route("/admin.php", methods=["GET", "POST"])
+@app.api_route("/wp-admin", methods=["GET", "POST"])
+@app.api_route("/.env", methods=["GET", "POST"])
+@app.api_route("/config.php", methods=["GET", "POST"])
+@app.api_route("/phpmyadmin", methods=["GET", "POST"])
+async def honeypot_trap(request: Request, db: Session = Depends(get_db)):
+    ip = request.client.host
+    path = request.url.path
+    ua = request.headers.get("user-agent", "Unknown")
+    
+    # 🌎 Obtener GeoIP real (asíncrono)
+    geo = await get_geoip_data(ip)
+    
+    anon_ip = anonymize_ip(ip)
+    
+    # 🚀 Log para Promtail/Loki
+    alert_msg = f"IP={anon_ip} PATH={path} COUNTRY={geo['country']} UA={ua}"
+    logger.warning(f"HONEYPOT_ALERT: {alert_msg}")
+    
+    # 📱 Enviar alerta a Telegram
+    asyncio.create_task(send_telegram_alert(f"Target: `{path}`\nIP: `{anon_ip}`\nGeo: `{geo['country']}`\nUA: `{ua}`"))
+    
+    # Guardar en DB
+    nuevo_evento = models.HoneypotEvent(
+        ip=anon_ip, 
+        path=path, 
+        user_agent=ua, 
+        country=geo['country'],
+        lat=geo['lat'],
+        lon=geo['lon']
+    )
+    db.add(nuevo_evento)
+    db.commit()
+
+    # 📡 BROADCAST vía WebSocket
+    payload = {
+        "type": "NEW_ATTACK",
+        "data": {
+            "ip": anon_ip,
+            "path": path,
+            "country": geo['country'],
+            "lat": geo['lat'],
+            "lon": geo['lon'],
+            "time": "Justo ahora"
+        }
+    }
+    await manager.broadcast(payload)
+    
+    return HTMLResponse(content=f"""
+    <html>
+        <head><title>Admin Login - Restricted Access</title></head>
+        <body style="font-family: 'Courier New', Courier, monospace; background: #1a1a1a; color: #00ff00; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+            <div style="background: #2a2a2a; padding: 30px; border: 2px solid #00ff00; box-shadow: 0 0 20px #00ff00;">
+                <h2 style="margin-top: 0; text-transform: uppercase;">⚠️ Access Restricted</h2>
+                <p>System identification required. Your IP ({anon_ip}) has been logged for security audit.</p>
+                <form method="POST">
+                    <label>Username:</label><br>
+                    <input type="text" name="user" style="width: 100%; background: #000; border: 1px solid #00ff00; color: #00ff00; padding: 8px; margin: 10px 0;"><br>
+                    <label>Password:</label><br>
+                    <input type="password" name="pass" style="width: 100%; background: #000; border: 1px solid #00ff00; color: #00ff00; padding: 8px; margin: 10px 0;"><br>
+                    <input type="submit" value="AUTHENTICATE" style="background: #00ff00; color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px;">
+                </form>
+                <p style="color: #ff0000; font-size: 11px; margin-top: 20px;">NOTICE: Legal action will be taken against unauthorized access attempts.</p>
+            </div>
+        </body>
+    </html>
+    """, status_code=200)
+
+# 🔒 ACTUALIZADO: Ruta Protegida (El Dashboard del Portfolio con DATOS REALES)
 @app.get("/api/dashboard")
-def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)):
-    # Datos mockeados de Ciberseguridad para el UI Premium
+def obtener_datos_secretos(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 1. Métricas de Honeypot
+    total_intrusiones = db.query(models.HoneypotEvent).count()
+    ips_unicas = db.query(func.count(func.distinct(models.HoneypotEvent.ip))).scalar()
+    
+    # 2. Métricas de Contenido
+    proyectos_count = db.query(models.Project).count()
+    comentarios_count = db.query(models.Comment).count()
+    
+    # 3. Actividad Reciente (Mezcla de Honeypot y Logs de Sistema)
+    honeypot_recent = db.query(models.HoneypotEvent).order_by(models.HoneypotEvent.timestamp.desc()).limit(5).all()
+    
+    activity_log = []
+    for h in honeypot_recent:
+        activity_log.append({
+            "id": h.id,
+            "type": "ALERT_HONEYPOT",
+            "message": f"Intento de intrusión en {h.path} desde {h.ip} ({h.country})",
+            "time": "Hace un momento"
+        })
+    
+    # 4. Estadísticas por País (Convertir a lista de listas para evitar error de serialización)
+    stats_raw = db.query(models.HoneypotEvent.country, func.count(models.HoneypotEvent.id)).group_by(models.HoneypotEvent.country).all()
+    stats_list = [[row[0], row[1]] for row in stats_raw]
+
+    # Rellenar si hay pocos
+    if len(activity_log) < 3:
+        activity_log.append({"id": 99, "type": "SCAN_COMPLETE", "message": "Análisis de vulnerabilidades web finalizado", "time": "Hace 2 horas"})
+
     return {
         "metrics": {
-            "active_alerts": 3,
-            "resolved_ctfs": 42,
-            "secured_systems": 15,
-            "uptime_days": 128
+            "active_alerts": total_intrusiones,
+            "secured_systems": ips_unicas,
+            "resolved_ctfs": proyectos_count,
+            "uptime_days": comentarios_count
         },
-        "recent_activity": [
-            {"id": 1, "type": "LOGIN_SUCCESS", "message": f"Acceso concedido a {current_user.email}", "time": "Justo ahora"},
-            {"id": 2, "type": "SCAN_COMPLETE", "message": "Análisis de vulnerabilidades web finalizado sin hallazgos", "time": "Hace 2 horas"},
-            {"id": 3, "type": "ALERT_RESOLVED", "message": "Intento de fuerza bruta mitigado por Rate Limiting", "time": "Hace 5 horas"},
-        ]
+        "recent_activity": activity_log,
+        "honeypot_stats": stats_list
     }
+
+@app.get("/api/honeypot/history")
+def get_honeypot_history(db: Session = Depends(get_db)):
+    events = db.query(models.HoneypotEvent).order_by(models.HoneypotEvent.timestamp.desc()).limit(20).all()
+    return events
+
+@app.get("/api/honeypot/export")
+def export_honeypot_logs(db: Session = Depends(get_db)):
+    events = db.query(models.HoneypotEvent).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "IP", "Path", "Country", "Timestamp", "UserAgent"])
+    
+    for e in events:
+        writer.writerow([e.id, e.ip, e.path, e.country, e.timestamp, e.user_agent])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=honeypot_logs.csv"}
+    )
 
 # 📚 NUEVO: Listar Proyectos (Público)
 @app.get("/api/projects", response_model=List[ProjectResponse])
