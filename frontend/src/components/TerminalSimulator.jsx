@@ -79,7 +79,7 @@ export default function TerminalSimulator() {
               ${line.type === 'command' ? 'text-emerald-400' : ''}
             `}
           >
-            {line.type === 'response' ? (
+            {line.type === 'response' && (line.text.includes('<a') || line.text.includes('<span')) ? (
               <span dangerouslySetInnerHTML={{ __html: line.text }} />
             ) : (
               line.text
