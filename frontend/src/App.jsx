@@ -66,7 +66,7 @@ function App() {
           
           <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
-          <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/projects/:slug" element={<ProjectDetail />} />
           <Route path="/threat-map" element={<ThreatMap />} />
           
           <Route path="/dashboard" element={

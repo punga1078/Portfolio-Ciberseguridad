@@ -19,6 +19,7 @@ import asyncio
 import json
 import csv
 import io
+import re
 from fastapi.responses import HTMLResponse, StreamingResponse
 from datetime import datetime, timezone
 
@@ -109,6 +110,14 @@ class ProjectCreate(BaseModel):
     title: str = Field(..., max_length=150)
     content: str = Field(..., max_length=50000)
     project_type: str = "writeup"
+    github_url: Optional[str] = None
+    tags: List[str] = []
+
+class ProjectUpdate(BaseModel):
+    title: str = Field(..., max_length=150)
+    content: str = Field(..., max_length=50000)
+    project_type: str = "writeup"
+    github_url: Optional[str] = None
     tags: List[str] = []
 
 class TagResponse(BaseModel):
@@ -118,9 +127,11 @@ class TagResponse(BaseModel):
 
 class ProjectResponse(BaseModel):
     id: int
+    slug: str
     title: str
     content: str
     project_type: str
+    github_url: Optional[str] = None
     tags: List[TagResponse] = []
     
     class Config:
@@ -481,10 +492,20 @@ def get_projects(q: Optional[str] = None, db: Session = Depends(get_db)):
 # 📝 NUEVO: Crear Proyecto (Solo Admin)
 @app.post("/api/projects", response_model=ProjectResponse)
 def create_project(project: ProjectCreate, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    # Generar Slug
+    base_slug = re.sub(r'[^a-z0-9]+', '-', project.title.lower()).strip('-')
+    slug = base_slug
+    counter = 1
+    while db.query(models.Project).filter(models.Project.slug == slug).first() is not None:
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
     new_project = models.Project(
         title=project.title,
+        slug=slug,
         content=project.content,
         project_type=project.project_type,
+        github_url=project.github_url,
         author_id=current_user.id
     )
     
@@ -504,9 +525,9 @@ def create_project(project: ProjectCreate, current_user: models.User = Depends(g
     return new_project
 
 # 📄 NUEVO: Obtener un Proyecto específico con sus comentarios (Público)
-@app.get("/api/projects/{project_id}", response_model=ProjectDetailResponse)
-def get_project(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+@app.get("/api/projects/{slug}", response_model=ProjectDetailResponse)
+def get_project(slug: str, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.slug == slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     
@@ -518,24 +539,26 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
     
     return ProjectDetailResponse(
         id=project.id,
+        slug=project.slug,
         title=project.title,
         content=project.content,
         project_type=project.project_type,
+        github_url=project.github_url,
         comments=comments_data
     )
 
 # 💬 NUEVO: Publicar un comentario (Cualquier usuario logueado)
-@app.post("/api/projects/{project_id}/comments", response_model=CommentResponse)
+@app.post("/api/projects/{slug}/comments", response_model=CommentResponse)
 @limiter.limit("5/minute")
-def create_comment(request: Request, project_id: int, comment: CommentCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+def create_comment(request: Request, slug: str, comment: CommentCreate, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.slug == slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
         
     new_comment = models.Comment(
         content=comment.content,
         author_id=current_user.id,
-        project_id=project_id
+        project_id=project.id
     )
     db.add(new_comment)
     db.commit()
@@ -544,12 +567,39 @@ def create_comment(request: Request, project_id: int, comment: CommentCreate, cu
     return CommentResponse(id=new_comment.id, content=new_comment.content, author_email=current_user.email)
 
 # 🗑️ NUEVO: Eliminar un proyecto (Solo Admin)
-@app.delete("/api/projects/{project_id}")
-def delete_project(project_id: int, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
-    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+@app.delete("/api/projects/{slug}")
+def delete_project(slug: str, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.slug == slug).first()
     if not project:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
         
     db.delete(project)
     db.commit()
     return {"mensaje": "Proyecto eliminado exitosamente"}
+
+# ✏️ NUEVO: Actualizar un proyecto (Solo Admin)
+@app.put("/api/projects/{slug}", response_model=ProjectResponse)
+def update_project(slug: str, project_update: ProjectUpdate, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.slug == slug).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    
+    project.title = project_update.title
+    project.content = project_update.content
+    project.project_type = project_update.project_type
+    project.github_url = project_update.github_url
+    
+    # Actualizar tags
+    project.tags = []
+    for tag_name in project_update.tags:
+        tag_name = tag_name.strip().lower()
+        if not tag_name: continue
+        tag = db.query(models.Tag).filter(models.Tag.name == tag_name).first()
+        if not tag:
+            tag = models.Tag(name=tag_name)
+            db.add(tag)
+        project.tags.append(tag)
+        
+    db.commit()
+    db.refresh(project)
+    return project
