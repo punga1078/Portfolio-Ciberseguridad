@@ -27,38 +27,38 @@ export default function Home() {
       <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-red-600/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Header */}
-      <header className="h-16 border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-md flex items-center justify-between px-8 z-10 relative">
-        <div className="flex items-center gap-2">
-          <Shield className="w-6 h-6 text-slate-100" />
+      <header className="h-auto min-h-[4rem] py-3 md:py-0 md:h-16 border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-md flex flex-wrap items-center justify-between px-4 md:px-8 z-10 relative gap-y-4">
+        <div className="flex items-center gap-2 w-full md:w-auto justify-center md:justify-start">
+          <Shield className="w-6 h-6 text-emerald-400" />
           <span className="font-bold text-lg tracking-wide text-white">Facundo Cáceres</span>
         </div>
-        <nav className="flex items-center gap-6">
-          <Link to="/projects" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+        <nav className="flex flex-wrap items-center gap-3 md:gap-6 w-full md:w-auto justify-center md:justify-end">
+          <Link to="/projects" className="text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition-colors">
             Investigaciones
           </Link>
-          <Link to="/threat-map" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2">
-            <Globe className="w-4 h-4" />
+          <Link to="/threat-map" className="text-xs sm:text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 sm:gap-2">
+            <Globe className="w-3 h-3 sm:w-4 sm:h-4" />
             Threat Map
           </Link>
           
           {user ? (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 justify-center mt-2 sm:mt-0 w-full sm:w-auto">
               {user.rol === 'admin' && (
-                <Link to="/dashboard" className="flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
-                  <LayoutDashboard className="w-4 h-4" />
+                <Link to="/dashboard" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
+                  <LayoutDashboard className="w-3 h-3 sm:w-4 sm:h-4" />
                   Dashboard
                 </Link>
               )}
               <button 
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-sm font-medium text-slate-400 hover:text-red-400 transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-red-500/5"
+                className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium text-slate-400 hover:text-red-400 transition-colors border border-slate-800 px-3 sm:px-4 py-1.5 rounded-md hover:bg-red-500/5"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3 h-3 sm:w-4 sm:h-4" />
                 Salir
               </button>
             </div>
           ) : (
-            <Link to="/login" className="text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-4 py-1.5 rounded-md hover:bg-slate-800/50">
+            <Link to="/login" className="text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition-colors border border-slate-800 px-3 sm:px-4 py-1.5 rounded-md hover:bg-slate-800/50">
               Login
             </Link>
           )}
@@ -104,15 +104,15 @@ export default function Home() {
               </a>
             </div>
             
-            <div className="flex flex-wrap items-center gap-4">
-              <Link to="/projects" className="bg-slate-100 text-slate-950 hover:bg-white px-8 py-3 rounded-lg font-semibold transition-all">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center gap-4 w-full">
+              <Link to="/projects" className="w-full sm:w-auto bg-slate-100 text-slate-950 hover:bg-white px-8 py-3 rounded-lg font-semibold transition-all text-center">
                 Ver Investigaciones
               </Link>
-              <a href="/CV_Facundo_Caceres.pdf" download className="px-8 py-3 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-slate-900 transition-all border border-slate-800 flex items-center gap-2">
+              <a href="/CV_Facundo_Caceres.pdf" download className="w-full sm:w-auto justify-center px-8 py-3 rounded-lg font-semibold text-slate-300 hover:text-white hover:bg-slate-900 transition-all border border-slate-800 flex items-center gap-2">
                 <Download className="w-5 h-5" />
                 Descargar CV
               </a>
-              <Link to="/threat-map" className="px-8 py-3 rounded-lg font-semibold text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 border border-emerald-500/20 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+              <Link to="/threat-map" className="w-full sm:w-auto justify-center px-8 py-3 rounded-lg font-semibold text-emerald-400 hover:text-white bg-emerald-500/10 hover:bg-emerald-500 border border-emerald-500/20 transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
                 <Globe className="w-5 h-5" />
                 Threat Map LIVE
               </Link>
@@ -123,7 +123,7 @@ export default function Home() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative w-full flex items-center justify-center"
+            className="relative w-full flex items-center justify-center mt-8 lg:mt-0"
           >
             <TerminalSimulator />
           </motion.div>
