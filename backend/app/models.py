@@ -34,9 +34,11 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String, unique=True, index=True, nullable=False)
     title = Column(String, index=True, nullable=False)
     content = Column(String, nullable=False) # Almacenará Markdown
     project_type = Column(String, default="writeup") # 'writeup' o 'code'
+    github_url = Column(String, nullable=True) # URL del repo para arreglar enlaces relativos
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     author_id = Column(Integer, ForeignKey("users.id"))

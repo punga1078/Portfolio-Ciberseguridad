@@ -10,9 +10,11 @@ export default function DashboardProjects() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState('writeup');
+  const [githubUrl, setGithubUrl] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [message, setMessage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [editSlug, setEditSlug] = useState(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -33,17 +35,17 @@ export default function DashboardProjects() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (slug) => {
     if (!window.confirm("¿Estás seguro de que deseas eliminar esta investigación de forma permanente?")) return;
     
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/${slug}`, {
         method: 'DELETE',
         credentials: 'include'
       });
 
       if (res.ok) {
-        setProjects(projects.filter(p => p.id !== id));
+        setProjects(projects.filter(p => p.slug !== slug));
       } else {
         alert("Error al eliminar el proyecto");
       }
@@ -52,30 +54,52 @@ export default function DashboardProjects() {
     }
   };
 
+  const handleEditClick = (project) => {
+    setTitle(project.title);
+    setContent(project.content);
+    setType(project.project_type);
+    setGithubUrl(project.github_url || '');
+    setTagsInput(project.tags ? project.tags.map(t => t.name).join(', ') : '');
+    setEditSlug(project.slug);
+    setView('create');
+    setMessage(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects`, {
-        method: 'POST',
+      const url = editSlug 
+        ? `${import.meta.env.VITE_API_URL}/api/projects/${editSlug}`
+        : `${import.meta.env.VITE_API_URL}/api/projects`;
+      const method = editSlug ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ 
           title, 
           content, 
           project_type: type,
+          github_url: githubUrl || null,
           tags: tagsInput.split(',').map(t => t.trim()).filter(t => t)
         })
       });
 
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Publicación creada exitosamente.' });
+        setMessage({ type: 'success', text: editSlug ? 'Publicación actualizada exitosamente.' : 'Publicación creada exitosamente.' });
         setTitle('');
         setContent('');
+        setGithubUrl('');
         setTagsInput('');
-        setTimeout(() => setView('list'), 1500); // Volver a la lista después de crear
+        setEditSlug(null);
+        setTimeout(() => {
+          setView('list');
+          fetchProjects(); // Recargar proyectos para reflejar cambios
+        }, 1500);
       } else {
         const errorData = await res.json();
         setMessage({ type: 'error', text: errorData.detail || 'Error al crear la publicación.' });
@@ -109,7 +133,15 @@ export default function DashboardProjects() {
           <List className="w-4 h-4" /> Mis Investigaciones
         </button>
         <button 
-          onClick={() => { setView('create'); setMessage(null); }}
+          onClick={() => { 
+            setView('create'); 
+            setMessage(null); 
+            setEditSlug(null);
+            setTitle('');
+            setContent('');
+            setTagsInput('');
+            setGithubUrl('');
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${view === 'create' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'}`}
         >
           <Plus className="w-4 h-4" /> Redactar Nuevo
@@ -140,17 +172,26 @@ export default function DashboardProjects() {
                       <span className={`text-xs px-2 py-1 rounded font-bold uppercase ${project.project_type === 'writeup' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'}`}>
                         {project.project_type}
                       </span>
-                      <span className="text-xs text-slate-500">ID: #{project.id}</span>
+                      <span className="text-xs text-slate-500">/{project.slug}</span>
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={() => handleDelete(project.id)}
-                    className="p-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                    title="Eliminar registro"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleEditClick(project)}
+                      className="p-3 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
+                      title="Editar registro"
+                    >
+                      <FileText className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(project.slug)}
+                      className="p-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                      title="Eliminar registro"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               ))
             )}
@@ -167,8 +208,8 @@ export default function DashboardProjects() {
               <FileText className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-white">Redactar Operación</h2>
-              <p className="text-slate-400 text-sm">Registra una nueva auditoría o herramienta.</p>
+              <h2 className="text-2xl font-bold text-white">{editSlug ? 'Editar Operación' : 'Redactar Operación'}</h2>
+              <p className="text-slate-400 text-sm">{editSlug ? 'Modifica los detalles de la auditoría o herramienta.' : 'Registra una nueva auditoría o herramienta.'}</p>
             </div>
           </div>
 
@@ -206,6 +247,17 @@ export default function DashboardProjects() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">URL del Repositorio de GitHub (Opcional)</label>
+              <input
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                className="w-full bg-slate-950/50 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 outline-none transition-all"
+                placeholder="Ej: https://github.com/usuario/repo"
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Etiquetas (separadas por comas)</label>
               <input
                 type="text"
@@ -234,7 +286,7 @@ export default function DashboardProjects() {
               className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600/80 hover:bg-emerald-500 text-white rounded-lg font-semibold shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
             >
               <Save className="w-5 h-5" />
-              {loading ? 'Subiendo a la base de datos...' : 'Publicar Registro'}
+              {loading ? 'Subiendo a la base de datos...' : editSlug ? 'Actualizar Registro' : 'Publicar Registro'}
             </button>
           </form>
         </motion.div>

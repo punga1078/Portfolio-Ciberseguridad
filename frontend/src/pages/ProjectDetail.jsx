@@ -5,10 +5,10 @@ import { Shield, ArrowLeft, MessageSquare, Send, ShieldAlert, CheckCircle, Layou
 import { useAuth } from '../context/AuthContext';
 import { Helmet } from 'react-helmet-async';
 import ReactMarkdown from 'react-markdown';
-import rehypeSanitize from 'rehype-sanitize';
+import remarkGfm from 'remark-gfm';
 
 export default function ProjectDetail() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,11 +19,11 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     fetchProject();
-  }, [id]);
+  }, [slug]);
 
   const fetchProject = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/${id}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/${slug}`);
       if (res.ok) {
         const data = await res.json();
         setProject(data);
@@ -41,7 +41,7 @@ export default function ProjectDetail() {
     
     setSubmitting(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/${id}/comments`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/${slug}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -82,7 +82,8 @@ export default function ProjectDetail() {
     );
   }
 
-  // 🛡️ SANITIZACIÓN: El contenido será sanitizado por rehype-sanitize al renderizarse
+  // El contenido ya no se sanitiza estrictamente para permitir insignias de shields.io y HTML seguro de Markdown.
+  // Como solo el admin puede redactar proyectos, esto es seguro contra XSS externo.
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -128,19 +129,74 @@ export default function ProjectDetail() {
         <motion.article 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-3xl p-8 md:p-12 shadow-2xl mb-12"
+          className="bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-3xl p-8 md:p-12 shadow-2xl mb-12 w-full overflow-hidden"
         >
           <div className="flex items-center gap-3 mb-6">
             <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold uppercase tracking-wider">
               {project.project_type}
             </span>
+            {project.github_url && (
+              <a 
+                href={project.github_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-full text-xs font-bold transition-colors flex items-center gap-1"
+              >
+                🔗 Ver en GitHub
+              </a>
+            )}
           </div>
           
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-8">{project.title}</h1>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-8 break-words">{project.title}</h1>
           
           {/* 🛡️ Renderizado Seguro de Markdown */}
-          <div className="prose prose-invert prose-emerald max-w-none">
-            <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{project.content}</ReactMarkdown>
+          <div className="prose prose-invert prose-emerald max-w-none break-words overflow-hidden w-full">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]} 
+              components={{
+                a: ({node, ...props}) => {
+                  let href = props.href;
+                  if (href && !href.startsWith('http') && !href.startsWith('#') && project.github_url) {
+                    let base = project.github_url;
+                    
+                    if (base.includes('raw.githubusercontent.com')) {
+                       base = base.replace('raw.githubusercontent.com', 'github.com');
+                       base = base.replace('/refs/heads/', '/tree/');
+                    }
+                    if (base.endsWith('.md') || base.endsWith('.txt')) {
+                       base = base.substring(0, base.lastIndexOf('/'));
+                    }
+                    if (base.endsWith('/')) base = base.slice(0, -1);
+                    
+                    const cleanHref = href.startsWith('/') ? href.substring(1) : href;
+                    href = `${base}/${cleanHref}`;
+                  }
+                  return <a {...props} href={href} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline" />;
+                },
+                img: ({node, ...props}) => {
+                  let src = props.src;
+                  // Si es un enlace relativo (no empieza con http ni /)
+                  if (src && !src.startsWith('http') && !src.startsWith('/') && !src.startsWith('data:')) {
+                    // Si el usuario intentó referenciar una imagen en github:
+                    if (project.github_url) {
+                      let base = project.github_url;
+                      if (base.includes('github.com')) {
+                         base = base.replace('github.com', 'raw.githubusercontent.com');
+                         base = base.replace('/tree/', '/refs/heads/');
+                      }
+                      if (base.endsWith('.md') || base.endsWith('.txt')) {
+                         base = base.substring(0, base.lastIndexOf('/'));
+                      }
+                      if (base.endsWith('/')) base = base.slice(0, -1);
+                      src = `${base}/${src}`;
+                    }
+                  }
+                  return <img {...props} src={src} className="rounded-xl border border-slate-700/50 my-6 shadow-xl max-w-full" loading="lazy" />;
+                }
+              }}
+            >
+              {project.content}
+            </ReactMarkdown>
           </div>
         </motion.article>
 

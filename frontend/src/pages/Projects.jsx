@@ -166,7 +166,7 @@ export default function Projects() {
                   </div>
                 )}
                 
-                <Link to={`/projects/${project.id}`} className="text-sm font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors mt-auto pt-2">
+                <Link to={`/projects/${project.slug}`} className="text-sm font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors mt-auto pt-2">
                   Leer reporte completo →
                 </Link>
               </motion.div>
