@@ -11,3 +11,4 @@ slowapi
 httpx
 requests
 python-dotenv
+alembic

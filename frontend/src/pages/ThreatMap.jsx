@@ -24,6 +24,8 @@ export default function ThreatMap() {
             country: e.country,
             lat: e.lat || 0,
             lon: e.lon || 0,
+            threat_score: e.threat_score || 0,
+            mitre_tactic: e.mitre_tactic || "Desconocida",
             time: 'Hace poco'
           }));
           setAttacks(mapped);
@@ -48,7 +50,12 @@ export default function ThreatMap() {
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       if (msg.type === 'NEW_ATTACK') {
-        setAttacks(prev => [{ ...msg.data, id: Date.now() }, ...prev].slice(0, 20));
+        setAttacks(prev => [{ 
+          ...msg.data, 
+          id: Date.now(),
+          threat_score: msg.data.threat_score || 0,
+          mitre_tactic: msg.data.mitre_tactic || "Desconocida" 
+        }, ...prev].slice(0, 20));
         setStats(prev => ({
           total: prev.total + 1,
           latestCountry: msg.data.country
@@ -100,11 +107,21 @@ export default function ThreatMap() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0 }}
-                  className="text-[10px] p-2 bg-slate-950/50 border-l-2 border-red-500 rounded-r-md"
+                  className={`text-[10px] p-2 bg-slate-950/50 border-l-2 ${attack.threat_score > 80 ? 'border-purple-500' : 'border-red-500'} rounded-r-md`}
                 >
-                  <div className="text-red-400 font-bold">INTRUSION DETECTED</div>
-                  <div className="text-slate-400 mt-1">SRC: {attack.ip}</div>
-                  <div className="text-slate-300 font-bold mt-1 uppercase">GEO: {attack.country}</div>
+                  <div className={`${attack.threat_score > 80 ? 'text-purple-400' : 'text-red-400'} font-bold`}>
+                    {attack.threat_score > 80 ? 'AUTO-BLOCKED (SOAR)' : 'INTRUSION DETECTED'}
+                  </div>
+                  <div className="text-slate-400 mt-1 flex justify-between items-center">
+                    <span>SRC: {attack.ip}</span>
+                    <span className={`px-1 rounded font-bold ${attack.threat_score > 80 ? 'bg-red-500/20 text-red-400' : attack.threat_score > 40 ? 'bg-orange-500/20 text-orange-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                      SCORE: {attack.threat_score}/100
+                    </span>
+                  </div>
+                  <div className="text-slate-300 font-bold mt-1 uppercase flex justify-between items-center">
+                    <span>GEO: {attack.country}</span>
+                    <span className="text-blue-400 truncate max-w-[120px] text-right" title={attack.mitre_tactic}>{attack.mitre_tactic}</span>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>

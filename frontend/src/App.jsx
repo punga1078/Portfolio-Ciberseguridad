@@ -10,6 +10,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import DashboardProjects from './pages/DashboardProjects';
 import UserManagement from './pages/UserManagement';
 import ThreatMap from './pages/ThreatMap';
+import PageTracker from './components/PageTracker';
 
 // Componente para proteger rutas
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -51,6 +52,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <PageTracker />
         <Routes>
           <Route path="/login" element={
             <PublicRoute>

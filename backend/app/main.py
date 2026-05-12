@@ -27,10 +27,38 @@ from datetime import datetime, timezone
 from . import models, security
 from .database import engine, SessionLocal
 
-# Crear las tablas en la DB
-models.Base.metadata.create_all(bind=engine)
+# Crear las tablas en la DB (Desactivado a favor de Alembic)
+# models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mi Blog Seguro API")
+
+# 🚫 Caché global de IPs bloqueadas para evitar latencia en cada request
+blocked_ips_cache = set()
+
+# Pre-cargar la caché al iniciar
+def load_blocked_ips():
+    try:
+        db = SessionLocal()
+        blocked = db.query(models.BlockedIP).all()
+        for b in blocked:
+            blocked_ips_cache.add(b.ip)
+        db.close()
+    except Exception as e:
+        print(f"Error cargando Blocked IPs: {e}")
+
+load_blocked_ips()
+
+from fastapi.responses import JSONResponse
+
+@app.middleware("http")
+async def blocklist_middleware(request: Request, call_next):
+    client_ip = request.client.host
+    if client_ip in blocked_ips_cache:
+        return JSONResponse(
+            status_code=403,
+            content={"detail": "Access Denied. IP has been permanently banned due to suspicious activity."}
+        )
+    return await call_next(request)
 
 # 🛡️ Configurar Proxy Headers ANTES que el resto para confiar en X-Forwarded-For
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
@@ -124,6 +152,9 @@ class TagResponse(BaseModel):
     name: str
     class Config:
         from_attributes = True
+
+class VisitCreate(BaseModel):
+    path: str
 
 class ProjectResponse(BaseModel):
     id: int
@@ -238,6 +269,26 @@ def update_user_role(user_id: int, role_update: UserRoleUpdate, current_user: mo
     db.commit()
     return {"mensaje": f"Rol de {user.email} actualizado a {role_update.role}"}
 
+# 👮‍♂️ ADMIN: Listar IPs bloqueadas
+@app.get("/api/admin/blocked-ips")
+def list_blocked_ips(current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    blocks = db.query(models.BlockedIP).order_by(models.BlockedIP.timestamp.desc()).all()
+    return [{"id": b.id, "ip": b.ip, "reason": b.reason, "timestamp": b.timestamp} for b in blocks]
+
+# 👮‍♂️ ADMIN: Desbloquear una IP
+@app.delete("/api/admin/blocked-ips/{blocked_id}")
+def unblock_ip(blocked_id: int, current_user: models.User = Depends(get_admin_user), db: Session = Depends(get_db)):
+    block = db.query(models.BlockedIP).filter(models.BlockedIP.id == blocked_id).first()
+    if not block:
+        raise HTTPException(status_code=404, detail="Bloqueo no encontrado")
+        
+    if block.ip in blocked_ips_cache:
+        blocked_ips_cache.remove(block.ip)
+        
+    db.delete(block)
+    db.commit()
+    return {"mensaje": f"IP {block.ip} desbloqueada exitosamente"}
+
 # 📡 GESTIÓN DE WEBSOCKETS (Real-time Threat Map)
 class ConnectionManager:
     def __init__(self):
@@ -273,6 +324,45 @@ async def websocket_endpoint(websocket: WebSocket):
 # 🕵️‍♂️ HONEYPOT: Rutas trampa para detectar intrusos
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("honeypot")
+
+def map_mitre_tactic(path: str) -> str:
+    path_lower = path.lower()
+    if "/wp-admin" in path_lower or "login" in path_lower or "admin" in path_lower:
+        return "T1110 (Brute Force)"
+    elif ".env" in path_lower or "config" in path_lower:
+        return "T1552 (Unsecured Credentials)"
+    elif "phpmyadmin" in path_lower or "sql" in path_lower:
+        return "T1190 (Exploit Public-Facing Application)"
+    elif "shell" in path_lower or "cmd" in path_lower:
+        return "T1505 (Server Software Component)"
+    return "T1046 (Network Service Discovery)"
+
+async def get_abuseipdb_score(ip: str) -> int:
+    # Si es IP local, retornamos 0
+    if ip in ["127.0.0.1", "localhost", "::1"] or ip.startswith("172.") or ip.startswith("192.168.") or ip.startswith("10."):
+        return 0
+        
+    api_key = os.getenv("ABUSEIPDB_API_KEY")
+    if not api_key:
+        # Simulamos un score aleatorio con peso hacia valores bajos
+        return random.choice([0, 0, 0, 15, 25, 40, 85, 100])
+        
+    try:
+        url = "https://api.abuseipdb.com/api/v2/check"
+        headers = {
+            "Accept": "application/json",
+            "Key": api_key
+        }
+        params = {"ipAddress": ip, "maxAgeInDays": 90}
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.get(url, headers=headers, params=params, timeout=3.0)
+            if res.status_code == 200:
+                data = res.json()
+                return data.get("data", {}).get("abuseConfidenceScore", 0)
+    except Exception as e:
+        logger.error(f"AbuseIPDB Error: {e}")
+    return 0
 
 def anonymize_ip(ip: str) -> str:
     parts = ip.split(".")
@@ -357,14 +447,37 @@ async def honeypot_trap(request: Request, db: Session = Depends(get_db)):
     # 🌎 Obtener GeoIP real (asíncrono)
     geo = await get_geoip_data(ip)
     
+    # 🛡️ Obtener Threat Intel y MITRE
+    threat_score = await get_abuseipdb_score(ip)
+    mitre_tactic = map_mitre_tactic(path)
+    
     anon_ip = anonymize_ip(ip)
     
+    # 🛑 Verificar si es el quinto intento para banear
+    intentos = db.query(models.HoneypotEvent).filter(models.HoneypotEvent.ip == anon_ip).count()
+    
     # 🚀 Log para Promtail/Loki
-    alert_msg = f"IP={anon_ip} PATH={path} COUNTRY={geo['country']} UA={ua}"
+    alert_msg = f"IP={anon_ip} PATH={path} COUNTRY={geo['country']} UA={ua} SCORE={threat_score} MITRE={mitre_tactic}"
     logger.warning(f"HONEYPOT_ALERT: {alert_msg}")
     
-    # 📱 Enviar alerta a Telegram
-    asyncio.create_task(send_telegram_alert(f"Target: `{path}`\nIP: `{anon_ip}`\nGeo: `{geo['country']}`\nUA: `{ua}`"))
+    # 📱 Enviar alerta a Telegram con SOAR (simulación de bloqueo)
+    if intentos == 4: # Este sería el 5to
+        is_local = ip in ["127.0.0.1", "localhost", "::1"] or ip.startswith("192.168.") or ip.startswith("10.")
+        
+        if is_local:
+            soar_action = "\n🛡️ *Acción:* IP LOCAL CONFIABLE (Ignorada para Ban)"
+        else:
+            soar_action = "\n🛡️ *Acción:* IP AUTO-BLOQUEADA PERMANENTEMENTE (>= 5 intentos)"
+            if ip not in blocked_ips_cache:
+                blocked_ips_cache.add(ip)
+                nuevo_bloqueo = models.BlockedIP(ip=ip, reason=f"Low and Slow: 5 intentos en honeypot")
+                db.add(nuevo_bloqueo)
+    else:
+        soar_action = "\n🛡️ *Acción:* IP AUTO-BLOQUEADA (>80)" if threat_score > 80 else ""
+        
+    asyncio.create_task(send_telegram_alert(
+        f"Target: `{path}`\nIP: `{anon_ip}`\nGeo: `{geo['country']}`\nScore: `{threat_score}/100`\nMITRE: `{mitre_tactic}`{soar_action}\nUA: `{ua}`"
+    ))
     
     # Guardar en DB
     nuevo_evento = models.HoneypotEvent(
@@ -373,7 +486,9 @@ async def honeypot_trap(request: Request, db: Session = Depends(get_db)):
         user_agent=ua, 
         country=geo['country'],
         lat=geo['lat'],
-        lon=geo['lon']
+        lon=geo['lon'],
+        threat_score=threat_score,
+        mitre_tactic=mitre_tactic
     )
     db.add(nuevo_evento)
     db.commit()
@@ -387,7 +502,9 @@ async def honeypot_trap(request: Request, db: Session = Depends(get_db)):
             "country": geo['country'],
             "lat": geo['lat'],
             "lon": geo['lon'],
-            "time": "Justo ahora"
+            "time": "Justo ahora",
+            "threat_score": threat_score,
+            "mitre_tactic": mitre_tactic
         }
     }
     await manager.broadcast(payload)
@@ -431,13 +548,20 @@ def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)
         activity_log.append({
             "id": h.id,
             "type": "ALERT_HONEYPOT",
-            "message": f"Intento de intrusión en {h.path} desde {h.ip} ({h.country})",
+            "message": f"Intrusión en {h.path} desde {h.ip} ({h.country})",
+            "threat_score": h.threat_score or 0,
+            "mitre_tactic": h.mitre_tactic or "Desconocida",
+            "is_blocked": (h.threat_score or 0) > 80,
             "time": "Hace un momento"
         })
     
     # 4. Estadísticas por País (Convertir a lista de listas para evitar error de serialización)
     stats_raw = db.query(models.HoneypotEvent.country, func.count(models.HoneypotEvent.id)).group_by(models.HoneypotEvent.country).all()
     stats_list = [[row[0], row[1]] for row in stats_raw]
+
+    # 5. Web Analytics (Visitantes)
+    total_visitas = db.query(models.VisitorEvent).count()
+    visitantes_unicos = db.query(func.count(func.distinct(models.VisitorEvent.ip))).scalar()
 
     # Rellenar si hay pocos
     if len(activity_log) < 3:
@@ -448,7 +572,9 @@ def obtener_datos_secretos(current_user: models.User = Depends(get_current_user)
             "active_alerts": total_intrusiones,
             "secured_systems": ips_unicas,
             "resolved_ctfs": proyectos_count,
-            "uptime_days": comentarios_count
+            "uptime_days": comentarios_count,
+            "total_visits": total_visitas,
+            "unique_visitors": visitantes_unicos
         },
         "recent_activity": activity_log,
         "honeypot_stats": stats_list
@@ -476,6 +602,23 @@ def export_honeypot_logs(db: Session = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=honeypot_logs.csv"}
     )
+
+# 🌐 NUEVO: Endpoint para tracking de visitas web (Analytics)
+@app.post("/api/track")
+@limiter.limit("20/minute")
+def track_visitor(request: Request, visit: VisitCreate, db: Session = Depends(get_db)):
+    ip = request.client.host
+    ua = request.headers.get("user-agent", "Unknown")
+    anon_ip = anonymize_ip(ip)
+    
+    new_visit = models.VisitorEvent(
+        ip=anon_ip,
+        path=visit.path,
+        user_agent=ua
+    )
+    db.add(new_visit)
+    db.commit()
+    return {"status": "ok"}
 
 # 📚 NUEVO: Listar Proyectos (Público)
 @app.get("/api/projects", response_model=List[ProjectResponse])
