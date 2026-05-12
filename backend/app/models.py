@@ -57,6 +57,25 @@ class HoneypotEvent(Base):
     lat = Column(Float, nullable=True)
     lon = Column(Float, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    threat_score = Column(Integer, default=0)
+    mitre_tactic = Column(String, nullable=True)
+
+class BlockedIP(Base):
+    __tablename__ = "blocked_ips"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, unique=True, index=True, nullable=False)
+    reason = Column(String)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class VisitorEvent(Base):
+    __tablename__ = "visitor_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, index=True, nullable=False) # Guardaremos IP anonimizada
+    path = Column(String, nullable=False)
+    user_agent = Column(String)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Comment(Base):
     __tablename__ = "comments"
