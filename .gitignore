@@ -4,4 +4,4 @@ __pycache__/
 node_modules/
 dist/
 .DS_Store
-frontend/ssl/*.key
+frontend/ssl/
