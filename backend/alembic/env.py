@@ -18,8 +18,8 @@ if config.config_file_name is not None:
 target_metadata = models.Base.metadata
 
 def get_url():
-    # Cargar URL real desde env o usar el default de docker-compose
-    url = os.getenv("DATABASE_URL", "postgresql+psycopg2://admin:superpassword@db:5432/blog_seguro")
+    # Usar la URL configurada en app.database que ya lee del .env
+    url = SQLALCHEMY_DATABASE_URL
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
     return url
