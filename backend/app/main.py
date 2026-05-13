@@ -61,6 +61,7 @@ async def blocklist_middleware(request: Request, call_next):
     return await call_next(request)
 
 # 🛡️ Configurar Proxy Headers ANTES que el resto para confiar en X-Forwarded-For
+# IMPORTANTE: Esto debe estar configurado para que request.client.host sea la IP REAL y no la de Docker.
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 # 🛡️ Configuración Rate Limiting
@@ -440,9 +441,12 @@ async def send_telegram_alert(message: str):
 @app.api_route("/config.php", methods=["GET", "POST"])
 @app.api_route("/phpmyadmin", methods=["GET", "POST"])
 async def honeypot_trap(request: Request, db: Session = Depends(get_db)):
-    ip = request.client.host
+    ip = request.client.host or "0.0.0.0"
     path = request.url.path
     ua = request.headers.get("user-agent", "Unknown")
+    
+    # 🔍 LOG DE DEBUG PARA PRODUCCIÓN
+    logger.info(f"Honeypot hit: IP={ip} PATH={path}")
     
     # 🌎 Obtener GeoIP real (asíncrono)
     geo = await get_geoip_data(ip)
@@ -461,8 +465,9 @@ async def honeypot_trap(request: Request, db: Session = Depends(get_db)):
     logger.warning(f"HONEYPOT_ALERT: {alert_msg}")
     
     # 📱 Enviar alerta a Telegram con SOAR (simulación de bloqueo)
-    if intentos == 4: # Este sería el 5to
-        is_local = ip in ["127.0.0.1", "localhost", "::1"] or ip.startswith("192.168.") or ip.startswith("10.")
+    if intentos >= 4: # 5to intento o más
+        # 🛡️ IMPORTANTE: Incluimos 172. para evitar que el servidor se auto-bloquee por la red de Docker
+        is_local = ip in ["127.0.0.1", "localhost", "::1"] or ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.")
         
         if is_local:
             soar_action = "\n🛡️ *Acción:* IP LOCAL CONFIABLE (Ignorada para Ban)"
@@ -607,7 +612,7 @@ def export_honeypot_logs(db: Session = Depends(get_db)):
 @app.post("/api/track")
 @limiter.limit("20/minute")
 def track_visitor(request: Request, visit: VisitCreate, db: Session = Depends(get_db)):
-    ip = request.client.host
+    ip = request.client.host or "0.0.0.0"
     ua = request.headers.get("user-agent", "Unknown")
     anon_ip = anonymize_ip(ip)
     
